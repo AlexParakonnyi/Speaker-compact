@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Speaker-compact — статус плана</title>
+<style>
+    body { font-family: -apple-system, Arial, sans-serif; margin: 0; background: #f4f4f9; color: #1f2937; }
+    header { padding: 20px; background: #1f2937; color: white; }
+    header h1 { margin: 0 0 4px; font-size: 1.3rem; }
+    header p { margin: 0; color: #9ca3af; font-size: 0.85rem; }
+    .summary { display: flex; gap: 10px; padding: 16px 20px; flex-wrap: wrap; }
+    .stat { background: white; border-radius: 8px; padding: 10px 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); font-size: 0.85rem; }
+    .stat b { display: block; font-size: 1.4rem; }
+    .progress-bar { margin: 0 20px 16px; height: 10px; background: #e5e7eb; border-radius: 5px; overflow: hidden; }
+    .progress-fill { height: 100%; background: #10b981; transition: width 0.3s ease; }
+    .filters { display: flex; gap: 8px; padding: 0 20px 16px; flex-wrap: wrap; }
+    .filters button { border: 1px solid #d1d5db; background: white; border-radius: 999px; padding: 6px 14px; font-size: 0.8rem; cursor: pointer; }
+    .filters button.active { background: #1f2937; color: white; border-color: #1f2937; }
+    .list { padding: 0 20px 40px; display: flex; flex-direction: column; gap: 10px; }
+    .item { background: white; border-radius: 10px; padding: 14px 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); display: flex; align-items: center; gap: 12px; }
+    .badge { flex: none; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; font-weight: bold; color: white; }
+    .badge.pending { background: #9ca3af; }
+    .badge.in-progress { background: #f59e0b; }
+    .badge.done { background: #10b981; }
+    .item-body { flex: 1; min-width: 0; }
+    .item-title { font-weight: 600; font-size: 0.95rem; }
+    .item-meta { font-size: 0.78rem; color: #6b7280; margin-top: 2px; }
+    .item-file { font-size: 0.72rem; color: #9ca3af; font-family: monospace; margin-top: 2px; word-break: break-all; }
+    .proj-tag { display: inline-block; font-size: 0.68rem; padding: 1px 6px; border-radius: 4px; background: #eef2ff; color: #4338ca; margin-right: 4px; }
+</style>
+</head>
+<body>
+<header>
+    <h1>Speaker-compact — статус плана</h1>
+    <p>Читает статусы из встроенного манифеста ниже. Обновлять вручную при смене статуса пункта плана (заголовок файла + суффикс в имени файла).</p>
+</header>
+
+<div class="summary" id="summary"></div>
+<div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+<div class="filters" id="filters"></div>
+<div class="list" id="list"></div>
+
+<script>
+    // Единственный источник правды для этой страницы — обновлять вручную при
+    // смене статуса файла в Plan/ (и header внутри самого .md файла, и суффикс
+    // в имени файла должны совпадать с status тут).
+    const PLAN = [
+        { id: 1,  file: "01-device-project-bootstrap.done.md", title: "Инициализация проекта устройства", project: "device", status: "done" },
+        { id: 2,  file: "02-hardware-schematic-and-pinout.pending.md", title: "Аппаратная схема и распиновка", project: "device", status: "pending" },
+        { id: 3,  file: "03-frontend-project-bootstrap.pending.md", title: "Инициализация фронтенд-проекта", project: "frontend", status: "pending" },
+        { id: 4,  file: "04-sd-storage-and-file-api.pending.md", title: "SD-хранилище и файловый API", project: "device", status: "pending" },
+        { id: 5,  file: "05-groups-metadata.pending.md", title: "Группировка файлов через метаданные", project: "device", status: "pending" },
+        { id: 6,  file: "06-image-upload-and-storage.pending.md", title: "Загрузка и хранение картинок треков", project: "device+frontend", status: "pending" },
+        { id: 7,  file: "07-scenario-data-model.pending.md", title: "Модель данных сценария", project: "device", status: "pending" },
+        { id: 8,  file: "08-scenario-playback-engine.pending.md", title: "Движок воспроизведения сценария", project: "device", status: "pending" },
+        { id: 9,  file: "09-ap-config-mode.pending.md", title: "Режим точки доступа (настройка)", project: "device", status: "pending" },
+        { id: 10, file: "10-scenario-activation-and-network-teardown.pending.md", title: "Активация сценария и отключение сети", project: "device+frontend", status: "pending" },
+        { id: 11, file: "11-deep-sleep-power-management.pending.md", title: "Deep sleep и управление питанием ⚠️", project: "device", status: "pending" },
+        { id: 12, file: "12-frontend-design-system.pending.md", title: "Дизайн-система фронтенда", project: "frontend", status: "pending" },
+        { id: 13, file: "13-frontend-track-tiles-and-images.pending.md", title: "Экран треков: плитки и картинки", project: "frontend", status: "pending" },
+        { id: 14, file: "14-frontend-scenario-builder.pending.md", title: "Редактор сценариев", project: "frontend", status: "pending" },
+        { id: 15, file: "15-frontend-activation-screen.pending.md", title: "Экран активации сценария", project: "frontend", status: "pending" },
+        { id: 16, file: "16-frontend-device-deployment.in-progress.md", title: "Сборка и заливка фронтенда на устройство", project: "device+frontend", status: "in-progress" },
+        { id: 17, file: "17-hardware-in-the-loop-test-plan.pending.md", title: "План проверки на реальном железе", project: "device+frontend", status: "pending" },
+    ];
+
+    const STATUS_LABEL = { pending: "…", "in-progress": "▶", done: "✓" };
+    const STATUS_NAME = { pending: "не начато", "in-progress": "в работе", done: "готово" };
+
+    let activeFilter = "all";
+
+    function render() {
+        const items = activeFilter === "all" ? PLAN : PLAN.filter(p => p.status === activeFilter);
+
+        const counts = { pending: 0, "in-progress": 0, done: 0 };
+        PLAN.forEach(p => counts[p.status]++);
+
+        document.getElementById("summary").innerHTML = `
+            <div class="stat"><b>${PLAN.length}</b>всего пунктов</div>
+            <div class="stat"><b>${counts.done}</b>готово</div>
+            <div class="stat"><b>${counts["in-progress"]}</b>в работе</div>
+            <div class="stat"><b>${counts.pending}</b>не начато</div>
+        `;
+
+        const pct = Math.round((counts.done / PLAN.length) * 100);
+        document.getElementById("progress-fill").style.width = pct + "%";
+
+        const filters = ["all", "pending", "in-progress", "done"];
+        document.getElementById("filters").innerHTML = filters.map(f =>
+            `<button data-f="${f}" class="${f === activeFilter ? "active" : ""}">${f === "all" ? "Все" : STATUS_NAME[f]}</button>`
+        ).join("");
+        document.querySelectorAll(".filters button").forEach(btn => {
+            btn.addEventListener("click", () => { activeFilter = btn.dataset.f; render(); });
+        });
+
+        document.getElementById("list").innerHTML = items.map(p => `
+            <div class="item">
+                <div class="badge ${p.status}">${STATUS_LABEL[p.status]}</div>
+                <div class="item-body">
+                    <div class="item-title">${String(p.id).padStart(2, "0")}. ${p.title}</div>
+                    <div class="item-meta">${p.project.split("+").map(pr => `<span class="proj-tag">${pr}</span>`).join("")}${STATUS_NAME[p.status]}</div>
+                    <div class="item-file">${p.file}</div>
+                </div>
+            </div>
+        `).join("");
+    }
+
+    render();
+</script>
+</body>
+</html>

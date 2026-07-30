@@ -1,0 +1,25 @@
+# Секреты — ни при каких условиях не коммитить
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets.*
+credentials.*
+
+# frontend (Vite/React)
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/*.local
+
+# device (PlatformIO) — основной .gitignore лежит в device/, здесь на случай
+# сборки из корня
+device/.pio/
+
+# ОС/редактор
+.DS_Store
+Thumbs.db
+*.log
+.vscode/*
+!.vscode/extensions.json
