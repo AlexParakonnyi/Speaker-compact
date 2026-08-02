@@ -1,13 +1,17 @@
 #include "storage.h"
 
+#include <SPI.h>
 #include <algorithm>
 
 #include "global.h"
 
-// Новая плата — своя разводка, НЕ совпадает с audio_test. См. device/docs/wiring.md.
-#define SD_PIN_CLK 4
-#define SD_PIN_CMD 5
-#define SD_PIN_D0 6
+// Купленный модуль — обычный 6-контактный SPI-брейкаут (TF Micro SD Card
+// Module for Arduino/ARM/AVR), не SDIO-модуль — поэтому SD.h/SPI.h, не SD_MMC.
+// Пины — дефолтные для esp32-s3-devkitc-1 (pins_arduino.h), см. wiring.md.
+#define SD_PIN_CS 10
+#define SD_PIN_MOSI 11
+#define SD_PIN_SCK 12
+#define SD_PIN_MISO 13
 
 bool sdMounted = false;
 std::vector<TrackInfo> trackList;
@@ -16,8 +20,8 @@ SemaphoreHandle_t sdMutex;
 static File uploadFile;
 
 bool initStorage() {
-  SD_MMC.setPins(SD_PIN_CLK, SD_PIN_CMD, SD_PIN_D0);
-  sdMounted = SD_MMC.begin("/sdcard", true, false, 20000, 5);
+  SPI.begin(SD_PIN_SCK, SD_PIN_MISO, SD_PIN_MOSI, SD_PIN_CS);
+  sdMounted = SD.begin(SD_PIN_CS);
   Serial.println(sdMounted ? "[SD] Card mounted OK"
                             : "[SD] Card Mount Failed — треки/загрузка работать не будут");
   return sdMounted;
@@ -59,7 +63,7 @@ static uint32_t extractTimestamp(const String& name) {
 void updateTrackList() {
   if (!sdMounted) return;
   trackList.clear();
-  File root = SD_MMC.open("/");
+  File root = SD.open("/");
   File file = root.openNextFile();
   while (file) {
     String name = String(file.name());
@@ -91,14 +95,14 @@ void updateTrackList() {
 
 bool deleteRecording(const String& name) {
   if (!sdMounted) return false;
-  bool ok = SD_MMC.remove("/" + name);
+  bool ok = SD.remove("/" + name);
   updateTrackList();
   return ok;
 }
 
 bool renameRecording(const String& from, const String& to) {
   if (!sdMounted) return false;
-  bool ok = SD_MMC.rename("/" + from, "/" + to);
+  bool ok = SD.rename("/" + from, "/" + to);
   updateTrackList();
   return ok;
 }
@@ -108,7 +112,7 @@ static void ensureParentDirs(const String& absolutePath) {
   int slash;
   while ((slash = absolutePath.indexOf('/', from)) != -1) {
     String dir = absolutePath.substring(0, slash);
-    if (!SD_MMC.exists(dir)) SD_MMC.mkdir(dir);
+    if (!SD.exists(dir)) SD.mkdir(dir);
     from = slash + 1;
   }
 }
@@ -117,7 +121,7 @@ bool storageBeginWrite(const String& absolutePath) {
   if (!sdMounted) return false;
   xSemaphoreTake(sdMutex, portMAX_DELAY);
   ensureParentDirs(absolutePath);
-  uploadFile = SD_MMC.open(absolutePath, FILE_WRITE);
+  uploadFile = SD.open(absolutePath, FILE_WRITE);
   if (!uploadFile) {
     xSemaphoreGive(sdMutex);
     return false;

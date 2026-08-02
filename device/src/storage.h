@@ -3,7 +3,7 @@
 
 #include <Arduino.h>
 #include <FS.h>
-#include <SD_MMC.h>
+#include <SD.h>
 
 #define WAV_HEADER_SIZE 44
 
@@ -15,7 +15,8 @@ struct WavInfo {
   uint32_t dataOffset = 0;  // смещение начала аудиоданных в файле
 };
 
-// Монтирует SD_MMC (пины см. device/docs/wiring.md), обновляет
+// Инициализирует SPI и монтирует SD через SD.h (реальный модуль — SPI-only
+// брейкаут, не SDIO, см. device/docs/wiring.md), обновляет
 // global.h::sdMounted и возвращает тот же результат.
 bool initStorage();
 

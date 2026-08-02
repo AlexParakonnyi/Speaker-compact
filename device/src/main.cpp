@@ -31,7 +31,7 @@ void loop() {
   networkTick();  // следит за защёлкой, включает/гасит AP и LED на лету
 
   // Команды с веб-хендлеров выполняем здесь же, в единственном месте (вместе
-  // с плеером), где вообще трогаем SD_MMC/File для play/stop/delete/rename —
+  // с плеером), где вообще трогаем SD/File для play/stop/delete/rename —
   // исключает гонку с AsyncWebServer.
   processPendingCommands();
 

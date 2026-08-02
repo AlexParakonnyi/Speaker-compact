@@ -30,7 +30,7 @@ void startPlayback(const String& filename) {
     return;
   }
   stopAudio();
-  audioFile = SD_MMC.open("/" + filename, FILE_READ);
+  audioFile = SD.open("/" + filename, FILE_READ);
   if (!audioFile) {
     Serial.println("Failed to open file for playback: " + filename);
     return;

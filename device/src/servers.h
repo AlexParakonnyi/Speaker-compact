@@ -9,7 +9,7 @@ extern AsyncWebServer server;
 void initServers();
 
 // Выполняет команду, поставленную HTTP-хендлером (см. global.h::pendingCmd) —
-// единственное место (вместе с loop()), где трогаем SD_MMC/File для
+// единственное место (вместе с loop()), где трогаем SD/File для
 // play/stop/delete/rename, чтобы не гоняться с AsyncTCP-задачей.
 void processPendingCommands();
 

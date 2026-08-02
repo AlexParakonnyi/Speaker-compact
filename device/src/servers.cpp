@@ -1,6 +1,6 @@
 #include "servers.h"
 
-#include <SD_MMC.h>
+#include <SD.h>
 
 #include "global.h"
 #include "player.h"
@@ -144,7 +144,7 @@ void initServers() {
       nullptr, handleAudioUploadBody);
 
   // Фронтенд деплоится в /www/ (план 16). index.html — вход по умолчанию.
-  server.serveStatic("/", SD_MMC, "/www/").setDefaultFile("index.html");
+  server.serveStatic("/", SD, "/www/").setDefaultFile("index.html");
 
   server.begin();
 }
