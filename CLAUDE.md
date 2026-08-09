@@ -124,8 +124,12 @@ ESP32-S3): та же плата/экосистема библиотек, но б
 абстракции. Проверено на audio_test при переносе с монолитного `main.cpp`:
 
 - `global.h` — общее состояние (`extern`), доступное всем модулям.
-- `storage.h/cpp` — SD_MMC, файлы, метаданные (WAV-заголовки, `groups.json`,
-  список треков).
+- `storage.h/cpp` — SD, файлы, WAV-заголовки, список треков (`trackList`,
+  `TRACKS_DIR`).
+- `groups.h/cpp` — группы треков через `/groups.json` в корне SD (план 05):
+  `groupList`/`trackGroups` в памяти, `loadGroups()`/`saveGroups()`. Не знает
+  про HTTP и про `storage.cpp` — при удалении/переименовании трека вызывающая
+  сторона (`servers.cpp::processPendingCommands`) сама сводит оба модуля.
 - `speaker.h/cpp` — весь I2S TX: инициализация, `speakerWrite()` (громкость +
   насыщение int16 в одном месте, не дублировать по местам использования).
 - `player.h/cpp` — state machine воспроизведения (переименован из `recorder.h/cpp`

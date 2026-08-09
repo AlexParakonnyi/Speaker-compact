@@ -29,7 +29,18 @@ extern bool sdMounted;
 // Arduino loop(). Короткие мутирующие команды (play/stop/delete/rename) идут
 // через очередь и выполняются строго в loop() — тот же принцип, что и в
 // audio_test (см. CLAUDE.md §4.2).
-enum PendingCmd { CMD_NONE, CMD_PLAY, CMD_STOP, CMD_DELETE, CMD_RENAME, CMD_CLEAR_ALL };
+enum PendingCmd {
+  CMD_NONE,
+  CMD_PLAY,
+  CMD_STOP,
+  CMD_DELETE,
+  CMD_RENAME,
+  CMD_CLEAR_ALL,
+  CMD_GROUP_CREATE,
+  CMD_GROUP_RENAME,
+  CMD_GROUP_DELETE,
+  CMD_ASSIGN_GROUP,
+};
 extern volatile PendingCmd pendingCmd;
 extern String pendingArg1, pendingArg2;
 

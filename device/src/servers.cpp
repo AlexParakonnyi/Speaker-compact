@@ -1,9 +1,11 @@
 #include "servers.h"
 
+#include <ArduinoJson.h>
 #include <SD.h>
 #include <esp_log.h>
 
 #include "global.h"
+#include "groups.h"
 #include "player.h"
 #include "speaker.h"
 #include "storage.h"
@@ -34,6 +36,22 @@ static const uint32_t MAX_UPLOAD_BYTES = 20UL * 1024 * 1024;
 static bool audioExtensionAllowed(const String& name) {
   return name.endsWith(".wav") || name.endsWith(".mp3") || name.endsWith(".aac") ||
          name.endsWith(".m4a") || name.endsWith(".pcm");
+}
+
+// Группы — не имена файлов, слэши/".." тут не проблема (ArduinoJson сам
+// экранирует значения при записи groups.json), но пустое имя зарезервировано
+// под "снять группу", а разумный лимит длины защищает groups.json от раздувания.
+static const size_t MAX_GROUP_NAME_LEN = 64;
+
+static bool groupNameSafe(const String& name) {
+  return name.length() > 0 && name.length() <= MAX_GROUP_NAME_LEN;
+}
+
+static bool groupExists(const String& name) {
+  for (const String& g : groupList) {
+    if (g == name) return true;
+  }
+  return false;
 }
 
 // Раздача фронтенда (план 16) пишет сюда файлами по одному, raw body —
@@ -111,19 +129,31 @@ static void handleAudioUploadBody(AsyncWebServerRequest* request, uint8_t* data,
 
 void initServers() {
   server.on("/api/status", HTTP_GET, [](AsyncWebServerRequest* request) {
-    String json = "{\"sdMounted\":" + String(sdMounted ? "true" : "false") + ",";
-    json += "\"status\":\"";
-    json += currentState == PLAYING ? "PLAYING" : "IDLE";
-    json += "\",\"currentTrack\":\"" + currentTrack + "\",";
-    json += "\"volume\":" + String(playbackVolume, 2) + ",";
-    json += "\"tracks\":[";
-    for (size_t i = 0; i < trackList.size(); i++) {
-      json += "{\"name\":\"" + trackList[i].name + "\",";
-      json += "\"size\":" + String(trackList[i].sizeBytes) + ",";
-      json += "\"duration\":" + String(trackList[i].durationSec, 1) + "}";
-      json += (i < trackList.size() - 1 ? "," : "");
+    JsonDocument doc;
+    doc["sdMounted"] = sdMounted;
+    doc["status"] = currentState == PLAYING ? "PLAYING" : "IDLE";
+    doc["currentTrack"] = currentTrack;
+    doc["volume"] = playbackVolume;
+    JsonArray tracks = doc["tracks"].to<JsonArray>();
+    for (const TrackInfo& t : trackList) {
+      JsonObject o = tracks.add<JsonObject>();
+      o["name"] = t.name;
+      o["size"] = t.sizeBytes;
+      o["duration"] = t.durationSec;
     }
-    json += "]}";
+    String json;
+    serializeJson(doc, json);
+    request->send(200, "application/json", json);
+  });
+
+  server.on("/api/groups", HTTP_GET, [](AsyncWebServerRequest* request) {
+    JsonDocument doc;
+    JsonArray groups = doc["groups"].to<JsonArray>();
+    for (const String& g : groupList) groups.add(g);
+    JsonObject assignments = doc["assignments"].to<JsonObject>();
+    for (const TrackGroupAssignment& a : trackGroups) assignments[a.track] = a.group;
+    String json;
+    serializeJson(doc, json);
     request->send(200, "application/json", json);
   });
 
@@ -184,6 +214,99 @@ void initServers() {
     request->send(200, "text/plain", "OK");
   });
 
+  server.on("/api/groups/create", HTTP_POST, [](AsyncWebServerRequest* request) {
+    if (!request->hasParam("name", true)) {
+      request->send(400, "text/plain", "Missing 'name' param");
+      return;
+    }
+    String name = request->getParam("name", true)->value();
+    if (!groupNameSafe(name)) {
+      request->send(400, "text/plain", "Invalid 'name'");
+      return;
+    }
+    if (groupExists(name)) {
+      request->send(409, "text/plain", "Group already exists");
+      return;
+    }
+    pendingArg1 = name;
+    pendingCmd = CMD_GROUP_CREATE;
+    request->send(200, "text/plain", "OK");
+  });
+
+  server.on("/api/groups/rename", HTTP_POST, [](AsyncWebServerRequest* request) {
+    if (!request->hasParam("from", true) || !request->hasParam("to", true)) {
+      request->send(400, "text/plain", "Missing 'from'/'to' param");
+      return;
+    }
+    String from = request->getParam("from", true)->value();
+    String to = request->getParam("to", true)->value();
+    if (!groupNameSafe(from) || !groupNameSafe(to)) {
+      request->send(400, "text/plain", "Invalid 'from'/'to'");
+      return;
+    }
+    if (!groupExists(from)) {
+      request->send(404, "text/plain", "Unknown group");
+      return;
+    }
+    if (groupExists(to)) {
+      request->send(409, "text/plain", "Target name already exists");
+      return;
+    }
+    pendingArg1 = from;
+    pendingArg2 = to;
+    pendingCmd = CMD_GROUP_RENAME;
+    request->send(200, "text/plain", "OK");
+  });
+
+  server.on("/api/groups/delete", HTTP_POST, [](AsyncWebServerRequest* request) {
+    if (!request->hasParam("name", true)) {
+      request->send(400, "text/plain", "Missing 'name' param");
+      return;
+    }
+    String name = request->getParam("name", true)->value();
+    if (!groupExists(name)) {
+      request->send(404, "text/plain", "Unknown group");
+      return;
+    }
+    pendingArg1 = name;
+    pendingCmd = CMD_GROUP_DELETE;
+    request->send(200, "text/plain", "OK");
+  });
+
+  server.on("/api/tracks/assign_group", HTTP_POST, [](AsyncWebServerRequest* request) {
+    if (!request->hasParam("file", true) || !request->hasParam("group", true)) {
+      request->send(400, "text/plain", "Missing 'file'/'group' param");
+      return;
+    }
+    String file = request->getParam("file", true)->value();
+    String group = request->getParam("group", true)->value();
+    if (!trackNameSafe(file)) {
+      request->send(400, "text/plain", "Invalid 'file'");
+      return;
+    }
+    // group == "" разрешено — это "снять группу", остальное должно совпадать
+    // с уже существующей группой (создаётся отдельно через /groups/create).
+    if (group.length() > 0 && !groupExists(group)) {
+      request->send(404, "text/plain", "Unknown group");
+      return;
+    }
+    bool trackKnown = false;
+    for (const TrackInfo& t : trackList) {
+      if (t.name == file) {
+        trackKnown = true;
+        break;
+      }
+    }
+    if (!trackKnown) {
+      request->send(404, "text/plain", "Unknown track");
+      return;
+    }
+    pendingArg1 = file;
+    pendingArg2 = group;
+    pendingCmd = CMD_ASSIGN_GROUP;
+    request->send(200, "text/plain", "OK");
+  });
+
   server.on("/api/settings", HTTP_POST, [](AsyncWebServerRequest* request) {
     if (request->hasParam("volume", true)) {
       float v = request->getParam("volume", true)->value().toFloat();
@@ -225,6 +348,7 @@ void processPendingCommands() {
       if (pendingArg1 == currentTrack && currentState != IDLE)
         stopAudio();  // не удаляем открытый файл
       deleteRecording(pendingArg1);
+      unassignTrack(pendingArg1);  // storage.cpp не знает про группы — свести здесь
       break;
     case CMD_RENAME: {
       String to = pendingArg2;
@@ -235,12 +359,28 @@ void processPendingCommands() {
         to += dot >= 0 ? pendingArg1.substring(dot) : ".wav";
       }
       bool ok = renameRecording(pendingArg1, to);
-      if (ok && currentTrack == pendingArg1) currentTrack = to;
+      if (ok) {
+        if (currentTrack == pendingArg1) currentTrack = to;
+        renameTrackAssignment(pendingArg1, to);
+      }
       break;
     }
     case CMD_CLEAR_ALL:
       if (currentState != IDLE) stopAudio();  // не удаляем открытый файл
       clearAllRecordings();
+      clearAllAssignments();
+      break;
+    case CMD_GROUP_CREATE:
+      createGroup(pendingArg1);
+      break;
+    case CMD_GROUP_RENAME:
+      renameGroup(pendingArg1, pendingArg2);
+      break;
+    case CMD_GROUP_DELETE:
+      deleteGroup(pendingArg1);
+      break;
+    case CMD_ASSIGN_GROUP:
+      assignTrackGroup(pendingArg1, pendingArg2);
       break;
     default:
       break;

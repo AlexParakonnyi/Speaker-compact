@@ -2,6 +2,7 @@
 #include <esp_log.h>
 
 #include "global.h"
+#include "groups.h"
 #include "network.h"
 #include "player.h"
 #include "servers.h"
@@ -21,7 +22,9 @@ void setup() {
   initStorage();
   initSpeaker();
   updateTrackList();
-  ESP_LOGI(TAG, "SD: найдено треков: %u", (unsigned)trackList.size());
+  loadGroups();
+  ESP_LOGI(TAG, "SD: найдено треков: %u, групп: %u", (unsigned)trackList.size(),
+           (unsigned)groupList.size());
 
   initNetwork();  // защёлка решает: поднимать AP или нет (Plan/09)
   initServers();
