@@ -1,10 +1,14 @@
 #include "codec.h"
 
+#include <esp_log.h>
+
 #include "mp3_decoder/mp3_decoder.h"
 #include "aac_decoder/aac_decoder.h"
 
 #include "global.h"
 #include "speaker.h"
+
+static const char* TAG = "codec";
 
 // Логика буферизации/восстановления после ошибки — по образцу
 // Audio::sendBytes() из этой же библиотеки (Audio.cpp), но без сети:
@@ -89,8 +93,8 @@ bool codecTick(CodecType type) {
     paramsSet = true;
     uint32_t sampRate = (type == CODEC_MP3) ? MP3GetSampRate() : AACGetSampRate();
     setPlaybackSampleRate(sampRate);
-    Serial.printf("[codec] %s: %u Hz, %d канал(ов)\n",
-                  type == CODEC_MP3 ? "MP3" : "AAC", sampRate, channels);
+    ESP_LOGI(TAG, "%s: %u Hz, %d канал(ов)",
+             type == CODEC_MP3 ? "MP3" : "AAC", sampRate, channels);
   }
 
   int outputSamps = (type == CODEC_MP3) ? MP3GetOutputSamps() : AACGetOutputSamps();

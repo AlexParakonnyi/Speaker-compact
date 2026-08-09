@@ -2,8 +2,11 @@
 
 #include <SPI.h>
 #include <algorithm>
+#include <esp_log.h>
 
 #include "global.h"
+
+static const char* TAG = "storage";
 
 // Купленный модуль — обычный 6-контактный SPI-брейкаут (TF Micro SD Card
 // Module for Arduino/ARM/AVR), не SDIO-модуль — поэтому SD.h/SPI.h, не SD_MMC.
@@ -22,10 +25,16 @@ static File uploadFile;
 bool initStorage() {
   SPI.begin(SD_PIN_SCK, SD_PIN_MISO, SD_PIN_MOSI, SD_PIN_CS);
   sdMounted = SD.begin(SD_PIN_CS);
-  Serial.println(sdMounted ? "[SD] Card mounted OK"
-                            : "[SD] Card Mount Failed — треки/загрузка работать не будут");
+  if (sdMounted) {
+    ESP_LOGI(TAG, "Card mounted OK");
+    if (!SD.exists(TRACKS_DIR)) SD.mkdir(TRACKS_DIR);
+  } else {
+    ESP_LOGE(TAG, "Card Mount Failed — треки/загрузка работать не будут");
+  }
   return sdMounted;
 }
+
+String trackPath(const String& name) { return String(TRACKS_DIR) + "/" + name; }
 
 WavInfo parseWavHeader(File& f) {
   WavInfo info;
@@ -63,7 +72,7 @@ static uint32_t extractTimestamp(const String& name) {
 void updateTrackList() {
   if (!sdMounted) return;
   trackList.clear();
-  File root = SD.open("/");
+  File root = SD.open(TRACKS_DIR);
   File file = root.openNextFile();
   while (file) {
     String name = String(file.name());
@@ -95,16 +104,24 @@ void updateTrackList() {
 
 bool deleteRecording(const String& name) {
   if (!sdMounted) return false;
-  bool ok = SD.remove("/" + name);
+  bool ok = SD.remove(trackPath(name));
   updateTrackList();
   return ok;
 }
 
 bool renameRecording(const String& from, const String& to) {
   if (!sdMounted) return false;
-  bool ok = SD.rename("/" + from, "/" + to);
+  bool ok = SD.rename(trackPath(from), trackPath(to));
   updateTrackList();
   return ok;
+}
+
+void clearAllRecordings() {
+  if (!sdMounted) return;
+  for (const TrackInfo& t : trackList) {
+    SD.remove(trackPath(t.name));
+  }
+  updateTrackList();
 }
 
 static void ensureParentDirs(const String& absolutePath) {
@@ -123,6 +140,7 @@ bool storageBeginWrite(const String& absolutePath) {
   ensureParentDirs(absolutePath);
   uploadFile = SD.open(absolutePath, FILE_WRITE);
   if (!uploadFile) {
+    ESP_LOGE(TAG, "SD.open failed: %s", absolutePath.c_str());
     xSemaphoreGive(sdMutex);
     return false;
   }

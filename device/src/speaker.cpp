@@ -1,6 +1,10 @@
 #include "speaker.h"
 
+#include <esp_log.h>
+
 #include "global.h"
+
+static const char* TAG = "speaker";
 
 float playbackVolume = 1.0f;
 
@@ -30,6 +34,7 @@ void initSpeaker() {
   // Непрерывные клоки усилителя в режиме master — потенциальный источник
   // наводок на соседние линии -> глушим, пока реально не играем.
   i2s_stop(I2S_AMP_PORT);
+  ESP_LOGI(TAG, "I2S init done: port %d, %u Hz, mono 16-bit", I2S_AMP_PORT, SAMPLE_RATE);
 }
 
 void speakerStart() { i2s_start(I2S_AMP_PORT); }

@@ -6,6 +6,7 @@
 #include <SD.h>
 
 #define WAV_HEADER_SIZE 44
+#define TRACKS_DIR "/tracks"
 
 struct WavInfo {
   bool valid = false;
@@ -22,12 +23,18 @@ bool initStorage();
 
 WavInfo parseWavHeader(File& f);
 
+// Абсолютный путь трека на SD (TRACKS_DIR + "/" + name). name — уже без
+// слэшей/".." (проверяется на входе в servers.cpp), эта функция сама ничего
+// не валидирует.
+String trackPath(const String& name);
+
 // Обновляет global.h::trackList (имя/размер/длительность), только при
 // sdMounted. Распознаёт .wav/.pcm/.mp3/.aac/.m4a.
 void updateTrackList();
 
 bool deleteRecording(const String& name);
 bool renameRecording(const String& from, const String& to);
+void clearAllRecordings();
 
 // ── Потоковая запись файла на SD (upload аудио, деплой фронтенда) ──────
 // Пишет прямо из обработчика AsyncTCP по частям (chunked body) — используют

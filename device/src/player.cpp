@@ -1,9 +1,13 @@
 #include "player.h"
 
+#include <esp_log.h>
+
 #include "codec.h"
 #include "global.h"
 #include "speaker.h"
 #include "storage.h"
+
+static const char* TAG = "player";
 
 volatile State currentState = IDLE;
 String currentTrack = "";
@@ -26,13 +30,13 @@ void stopAudio() {
 
 void startPlayback(const String& filename) {
   if (!sdMounted) {
-    Serial.println("[SD] Воспроизведение невозможно — карта не смонтирована");
+    ESP_LOGE(TAG, "Воспроизведение невозможно — карта не смонтирована");
     return;
   }
   stopAudio();
-  audioFile = SD.open("/" + filename, FILE_READ);
+  audioFile = SD.open(trackPath(filename), FILE_READ);
   if (!audioFile) {
-    Serial.println("Failed to open file for playback: " + filename);
+    ESP_LOGE(TAG, "Failed to open file for playback: %s", filename.c_str());
     return;
   }
 
@@ -41,7 +45,7 @@ void startPlayback(const String& filename) {
     // Частоту дискретизации выставит сам codecTick(), разобрав первый
     // фрейм — у MP3/AAC она известна только после декодирования заголовка.
     if (!codecBegin(activeCodec)) {
-      Serial.println("[codec] Не удалось выделить буферы декодера: " + filename);
+      ESP_LOGE(TAG, "Не удалось выделить буферы декодера: %s", filename.c_str());
       audioFile.close();
       activeCodec = CODEC_NONE;
       return;
@@ -49,13 +53,13 @@ void startPlayback(const String& filename) {
   } else if (filename.endsWith(".wav")) {
     WavInfo info = parseWavHeader(audioFile);
     if (!info.valid) {
-      Serial.println("[WAV] Некорректный заголовок: " + filename);
+      ESP_LOGE(TAG, "Некорректный WAV-заголовок: %s", filename.c_str());
       audioFile.close();
       return;
     }
     if (info.bitsPerSample != 16 || info.channels != 1) {
-      Serial.printf("[WAV] Не поддерживается формат (%u-бит, %u канал(ов)) — только моно 16-бит: %s\n",
-                     info.bitsPerSample, info.channels, filename.c_str());
+      ESP_LOGE(TAG, "Не поддерживается формат (%u-бит, %u канал(ов)) — только моно 16-бит: %s",
+               info.bitsPerSample, info.channels, filename.c_str());
       audioFile.close();
       return;
     }
@@ -68,7 +72,7 @@ void startPlayback(const String& filename) {
   currentTrack = filename;
   currentState = PLAYING;
   speakerStart();  // клоки усилителя — только на время реального воспроизведения
-  Serial.println("Playback started: " + filename);
+  ESP_LOGI(TAG, "Playback started: %s", filename.c_str());
 }
 
 void playbackTick() {

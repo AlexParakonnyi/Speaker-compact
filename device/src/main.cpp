@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <esp_log.h>
 
 #include "global.h"
 #include "network.h"
@@ -7,24 +8,25 @@
 #include "speaker.h"
 #include "storage.h"
 
+static const char* TAG = "main";
 static const char* stateName(State s) { return s == PLAYING ? "PLAYING" : "IDLE"; }
 
 void setup() {
   Serial.begin(115200);
   delay(300);  // время USB-CDC подняться, чтобы не терять первые строки
-  Serial.println("\n\n=== Speaker-compact: boot (минимальная версия) ===");
+  ESP_LOGI(TAG, "=== Speaker-compact: boot (минимальная версия) ===");
 
   sdMutex = xSemaphoreCreateMutex();
 
   initStorage();
   initSpeaker();
   updateTrackList();
-  Serial.printf("[SD] Найдено треков: %u\n", (unsigned)trackList.size());
+  ESP_LOGI(TAG, "SD: найдено треков: %u", (unsigned)trackList.size());
 
   initNetwork();  // защёлка решает: поднимать AP или нет (Plan/09)
   initServers();
 
-  Serial.println("=== Готово ===");
+  ESP_LOGI(TAG, "=== Готово ===");
 }
 
 void loop() {
@@ -42,9 +44,9 @@ void loop() {
   static uint32_t lastHeartbeat = 0;
   if (millis() - lastHeartbeat >= 10000) {
     lastHeartbeat = millis();
-    Serial.printf("[heartbeat] latch=%s state=%s tracks=%u\n",
-                  latchClosed() ? "closed(AP)" : "open", stateName(currentState),
-                  (unsigned)trackList.size());
+    ESP_LOGI(TAG, "heartbeat latch=%s state=%s tracks=%u",
+             latchClosed() ? "closed(AP)" : "open", stateName(currentState),
+             (unsigned)trackList.size());
   }
 
   // Подстраховка: раз в 3 сек, только в IDLE (нет открытого audioFile),
