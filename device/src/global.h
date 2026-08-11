@@ -6,6 +6,8 @@
 
 #include <vector>
 
+#include "scenario.h"
+
 // Общие аудио-константы.
 #define SAMPLE_RATE 16000
 #define BLOCK_SIZE_BYTES 1024  // порция чтения/записи за один проход (16-бит PCM)
@@ -40,9 +42,17 @@ enum PendingCmd {
   CMD_GROUP_RENAME,
   CMD_GROUP_DELETE,
   CMD_ASSIGN_GROUP,
+  CMD_SCENARIO_SAVE,
+  CMD_SCENARIO_DELETE,
+  CMD_SCENARIO_ACTIVATE,
+  CMD_SCENARIO_STOP,
 };
 extern volatile PendingCmd pendingCmd;
 extern String pendingArg1, pendingArg2;
+// Полезная нагрузка CMD_SCENARIO_SAVE — структура вложенная (steps — вектор),
+// не влезает в pendingArg1/pendingArg2 (строки), поэтому отдельная глобальная
+// переменная по тому же принципу очереди из одного элемента.
+extern Scenario pendingScenario;
 
 // Потоковая загрузка (upload аудио, деплой фронтенда) пишет на SD прямо из
 // обработчика AsyncTCP по частям (chunked body) — так проще, чем гонять

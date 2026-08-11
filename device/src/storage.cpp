@@ -22,9 +22,17 @@ SemaphoreHandle_t sdMutex;
 
 static File uploadFile;
 
+// Дефолт библиотеки (SD.begin() без аргумента frequency) — 4 МГц, это
+// сильно консервативно и напрямую ограничивает скорость upload/деплоя
+// (~4 Мбит/с теоретический потолок SPI, на практике ещё меньше из-за
+// протокольных накладных расходов SD-в-SPI-режиме). 20 МГц — типовое
+// безопасное значение для большинства SPI SD-модулей; если появятся ошибки
+// записи/чтения (нестабильная проводка на брейкауте) — снижать здесь.
+static const uint32_t SD_SPI_FREQUENCY_HZ = 20000000;
+
 bool initStorage() {
   SPI.begin(SD_PIN_SCK, SD_PIN_MISO, SD_PIN_MOSI, SD_PIN_CS);
-  sdMounted = SD.begin(SD_PIN_CS);
+  sdMounted = SD.begin(SD_PIN_CS, SPI, SD_SPI_FREQUENCY_HZ);
   if (sdMounted) {
     ESP_LOGI(TAG, "Card mounted OK");
     if (!SD.exists(TRACKS_DIR)) SD.mkdir(TRACKS_DIR);
@@ -69,8 +77,15 @@ static uint32_t extractTimestamp(const String& name) {
   return (uint32_t)name.substring(start + 1, end).toInt();
 }
 
+// trackList — общее состояние между loop() (play/delete/rename/clear_all
+// через pendingCmd, периодический safety-net refresh) и AsyncTCP-таском
+// (handleAudioUploadBody зовёт это напрямую, GET /api/status читает
+// trackList на чтение). Без sdMutex здесь GET /api/status мог поймать
+// trackList ровно между clear() и повторным наполнением — пустой список
+// или "фантомные" записи на стороне фронтенда (мигание списка треков).
 void updateTrackList() {
   if (!sdMounted) return;
+  xSemaphoreTake(sdMutex, portMAX_DELAY);
   trackList.clear();
   File root = SD.open(TRACKS_DIR);
   File file = root.openNextFile();
@@ -100,27 +115,34 @@ void updateTrackList() {
               if (ta != tb) return ta < tb;
               return a.name < b.name;
             });
+  xSemaphoreGive(sdMutex);
 }
 
 bool deleteRecording(const String& name) {
   if (!sdMounted) return false;
+  xSemaphoreTake(sdMutex, portMAX_DELAY);
   bool ok = SD.remove(trackPath(name));
-  updateTrackList();
+  xSemaphoreGive(sdMutex);
+  updateTrackList();  // сам берёт sdMutex — не держим его дважды подряд
   return ok;
 }
 
 bool renameRecording(const String& from, const String& to) {
   if (!sdMounted) return false;
+  xSemaphoreTake(sdMutex, portMAX_DELAY);
   bool ok = SD.rename(trackPath(from), trackPath(to));
+  xSemaphoreGive(sdMutex);
   updateTrackList();
   return ok;
 }
 
 void clearAllRecordings() {
   if (!sdMounted) return;
+  xSemaphoreTake(sdMutex, portMAX_DELAY);
   for (const TrackInfo& t : trackList) {
     SD.remove(trackPath(t.name));
   }
+  xSemaphoreGive(sdMutex);
   updateTrackList();
 }
 

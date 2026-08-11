@@ -5,6 +5,7 @@
 #include "groups.h"
 #include "network.h"
 #include "player.h"
+#include "scenario.h"
 #include "servers.h"
 #include "speaker.h"
 #include "storage.h"
@@ -23,6 +24,7 @@ void setup() {
   initSpeaker();
   updateTrackList();
   loadGroups();
+  initScenarios();
   ESP_LOGI(TAG, "SD: найдено треков: %u, групп: %u", (unsigned)trackList.size(),
            (unsigned)groupList.size());
 
@@ -40,6 +42,7 @@ void loop() {
   // исключает гонку с AsyncWebServer.
   processPendingCommands();
 
+  scenarioTick();  // план 08: продвигает шаги активного сценария по таймеру
   playbackTick();  // чтение/декодирование файла + отправка на динамик
 
   // Heartbeat раз в 10 сек — чтобы IP/статус были видны в мониторе порта,
@@ -47,9 +50,10 @@ void loop() {
   static uint32_t lastHeartbeat = 0;
   if (millis() - lastHeartbeat >= 10000) {
     lastHeartbeat = millis();
-    ESP_LOGI(TAG, "heartbeat latch=%s state=%s tracks=%u",
+    ESP_LOGI(TAG, "heartbeat latch=%s state=%s tracks=%u scenario=%s",
              latchClosed() ? "closed(AP)" : "open", stateName(currentState),
-             (unsigned)trackList.size());
+             (unsigned)trackList.size(),
+             scenarioActive ? activeScenarioName.c_str() : "-");
   }
 
   // Подстраховка: раз в 3 сек, только в IDLE (нет открытого audioFile),
