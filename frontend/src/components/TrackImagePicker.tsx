@@ -3,13 +3,13 @@ import { Camera, Clipboard, Image as ImageIcon } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from '@/components/ui/drawer'
 import { resizeImageToJpeg } from '@/lib/image'
 
 interface TrackImagePickerProps {
@@ -85,18 +85,18 @@ export function TrackImagePicker({ open, onOpenChange, trackName, onSave }: Trac
   }
 
   return (
-    <Dialog
+    <Drawer
       open={open}
       onOpenChange={(next) => {
         if (!next) reset()
         onOpenChange(next)
       }}
     >
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Фото трека</DialogTitle>
-          <DialogDescription>{trackName}</DialogDescription>
-        </DialogHeader>
+      <DrawerContent className="p-4">
+        <DrawerHeader className="px-0">
+          <DrawerTitle>Фото трека</DrawerTitle>
+          <DrawerDescription>{trackName}</DrawerDescription>
+        </DrawerHeader>
 
         {previewUrl ? (
           <img src={previewUrl} alt="Превью" className="mx-auto max-h-64 rounded-md object-contain" />
@@ -154,7 +154,7 @@ export function TrackImagePicker({ open, onOpenChange, trackName, onSave }: Trac
 
         {error && <p className="text-sm text-destructive">{error}</p>}
 
-        <DialogFooter>
+        <DrawerFooter className="px-0">
           {previewUrl ? (
             <>
               <Button variant="outline" onClick={reset} disabled={saving}>
@@ -169,8 +169,8 @@ export function TrackImagePicker({ open, onOpenChange, trackName, onSave }: Trac
               Отмена
             </Button>
           )}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </DrawerFooter>
+      </DrawerContent>
+    </Drawer>
   )
 }

@@ -35,6 +35,9 @@ const baseStatus: api.DeviceStatus = {
   ],
   scenarioActive: false,
   activeScenario: '',
+  batteryValid: false,
+  batteryVoltage: 0,
+  batteryPercent: 0,
 }
 
 const baseGroups: api.GroupsData = {

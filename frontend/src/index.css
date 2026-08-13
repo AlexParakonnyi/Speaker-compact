@@ -9,51 +9,59 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overscroll-behavior-y: none; /* тач-интерфейс на телефоне — без bounce-скролла всей страницы */
+  /* Plan/12 п.1: отступы под "чёлку"/системные жесты — требует
+     viewport-fit=cover в index.html, иначе env() всегда 0. */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
 }
 
+/* Тёплая/амбиентная тема (план 12, выбрано пользователем) — терракотовый
+   акцент поверх тёплой нейтральной базы, не холодный серый дефолт shadcn. */
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 0 0% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 3.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 3.9%;
-    --primary: 0 0% 9%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 0 0% 96.1%;
-    --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 96.1%;
-    --muted-foreground: 0 0% 45.1%;
-    --accent: 0 0% 96.1%;
-    --accent-foreground: 0 0% 9%;
-    --destructive: 0 84.2% 60.2%;
+    --background: 30 33% 98%;
+    --foreground: 20 14% 9%;
+    --card: 30 25% 97%;
+    --card-foreground: 20 14% 9%;
+    --popover: 30 25% 97%;
+    --popover-foreground: 20 14% 9%;
+    --primary: 24 75% 50%;
+    --primary-foreground: 30 25% 98%;
+    --secondary: 30 20% 93%;
+    --secondary-foreground: 20 14% 12%;
+    --muted: 30 18% 93%;
+    --muted-foreground: 25 10% 42%;
+    --accent: 24 55% 90%;
+    --accent-foreground: 20 60% 20%;
+    --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 89.8%;
-    --input: 0 0% 89.8%;
-    --ring: 0 0% 3.9%;
-    --radius: 0.5rem;
+    --border: 30 18% 87%;
+    --input: 30 18% 87%;
+    --ring: 24 75% 50%;
+    --radius: 0.6rem;
   }
   .dark {
-    --background: 0 0% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 0 0% 9%;
-    --secondary: 0 0% 14.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 0 0% 14.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --ring: 0 0% 83.1%;
+    --background: 25 20% 7%;
+    --foreground: 30 20% 95%;
+    --card: 25 20% 10%;
+    --card-foreground: 30 20% 95%;
+    --popover: 25 20% 10%;
+    --popover-foreground: 30 20% 95%;
+    --primary: 24 80% 58%;
+    --primary-foreground: 20 30% 10%;
+    --secondary: 25 15% 16%;
+    --secondary-foreground: 30 20% 92%;
+    --muted: 25 15% 16%;
+    --muted-foreground: 25 10% 62%;
+    --accent: 24 40% 22%;
+    --accent-foreground: 30 60% 90%;
+    --destructive: 0 62% 35%;
+    --destructive-foreground: 30 20% 95%;
+    --border: 25 15% 18%;
+    --input: 25 15% 18%;
+    --ring: 24 80% 58%;
   }
 }
 

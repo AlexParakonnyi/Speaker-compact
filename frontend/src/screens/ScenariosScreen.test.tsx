@@ -32,6 +32,9 @@ const baseStatus: api.DeviceStatus = {
   ],
   scenarioActive: false,
   activeScenario: '',
+  batteryValid: false,
+  batteryVoltage: 0,
+  batteryPercent: 0,
 }
 
 const baseGroups: api.GroupsData = { groups: [], assignments: {} }
@@ -110,6 +113,53 @@ describe('<ScenariosScreen />', () => {
           name: 'Утро',
           steps: [{ file: 'evening.mp3', delayAfterPrevSec: 0, volume: 1 }],
         }),
+      ),
+    )
+  })
+
+  it('слайдер громкости шага меняет volume клавиатурой (стрелка влево = тише)', async () => {
+    const user = userEvent.setup()
+    render(<ScenariosScreen />)
+    await screen.findByText('Вечер')
+
+    await user.click(screen.getByRole('button', { name: /новый сценарий/i }))
+    await user.type(screen.getByLabelText(/имя сценария/i), 'Тихий')
+    await user.selectOptions(screen.getByLabelText(/добавить трек в сценарий/i), 'evening.mp3')
+    await user.click(screen.getByRole('button', { name: /добавить шаг/i }))
+
+    const volumeSlider = screen.getByRole('slider', { name: /громкость шага 1/i })
+    volumeSlider.focus()
+    await user.keyboard('{ArrowLeft}{ArrowLeft}') // step=5 — 100% -> 90%
+
+    expect(await screen.findByText('90%')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /^сохранить$/i }))
+
+    await waitFor(() =>
+      expect(mockedApi.saveScenario).toHaveBeenCalledWith(
+        expect.objectContaining({ steps: [{ file: 'evening.mp3', delayAfterPrevSec: 0, volume: 0.9 }] }),
+      ),
+    )
+  })
+
+  it('"Добавить паузу" создаёт шаг с пустым file — устройство считает это чистой паузой', async () => {
+    const user = userEvent.setup()
+    render(<ScenariosScreen />)
+    await screen.findByText('Вечер')
+
+    await user.click(screen.getByRole('button', { name: /новый сценарий/i }))
+    await user.type(screen.getByLabelText(/имя сценария/i), 'С паузой')
+    await user.click(screen.getByRole('button', { name: /добавить паузу/i }))
+
+    const step = screen.getByTestId('scenario-step')
+    expect(step).toHaveTextContent('Пауза')
+    expect(screen.getByLabelText(/длительность паузы/i)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /^сохранить$/i }))
+
+    await waitFor(() =>
+      expect(mockedApi.saveScenario).toHaveBeenCalledWith(
+        expect.objectContaining({ steps: [{ file: '', delayAfterPrevSec: 10, volume: 1 }] }),
       ),
     )
   })

@@ -3,7 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- viewport-fit=cover — обязателен, иначе env(safe-area-inset-*) в index.css
+         всегда возвращает 0 на iOS (Plan/12: отступы под чёлку/жесты) -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>Speaker-compact</title>
   </head>
   <body>

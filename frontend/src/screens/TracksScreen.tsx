@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
 import { Settings2, Trash2, Upload } from 'lucide-react'
 
 import {
@@ -159,22 +160,32 @@ export function TracksScreen() {
         </p>
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {filteredTracks.map((t) => (
-            <TrackCard
-              key={t.name}
-              track={t}
-              group={assignments[t.name] ?? ''}
-              groups={groupList}
-              isPlaying={status.status === 'PLAYING' && status.currentTrack === t.name}
-              isBusy={status.status === 'PLAYING' && status.currentTrack !== t.name}
-              onPlay={() => runAction(() => playTrack(t.name))}
-              onStop={() => runAction(() => stopPlayback())}
-              onDelete={() => runAction(() => deleteTrack(t.name))}
-              onRename={(newName) => runAction(() => renameTrack(t.name, newName))}
-              onAssignGroup={(group) => runAction(() => assignGroup(t.name, group))}
-              onImageSave={(image) => uploadTrackImage(t.name, image)}
-            />
-          ))}
+          <AnimatePresence initial={false}>
+            {filteredTracks.map((t) => (
+              <motion.div
+                key={t.name}
+                layout
+                initial={{ opacity: 0, scale: 0.96 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.96 }}
+                transition={{ duration: 0.18 }}
+              >
+                <TrackCard
+                  track={t}
+                  group={assignments[t.name] ?? ''}
+                  groups={groupList}
+                  isPlaying={status.status === 'PLAYING' && status.currentTrack === t.name}
+                  isBusy={status.status === 'PLAYING' && status.currentTrack !== t.name}
+                  onPlay={() => runAction(() => playTrack(t.name))}
+                  onStop={() => runAction(() => stopPlayback())}
+                  onDelete={() => runAction(() => deleteTrack(t.name))}
+                  onRename={(newName) => runAction(() => renameTrack(t.name, newName))}
+                  onAssignGroup={(group) => runAction(() => assignGroup(t.name, group))}
+                  onImageSave={(image) => uploadTrackImage(t.name, image)}
+                />
+              </motion.div>
+            ))}
+          </AnimatePresence>
         </div>
       )}
 

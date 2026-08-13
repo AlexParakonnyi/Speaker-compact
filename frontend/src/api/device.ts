@@ -17,6 +17,12 @@ export interface DeviceStatus {
   // План 08 (интерим без deep sleep) — виден статус активного сценария.
   scenarioActive: boolean
   activeScenario: string
+  // Новый пункт плана: индикатор батареи через ADS1115. batteryValid=false,
+  // если модуль не отвечает на I2C. ⚠️ Делитель напряжения на устройстве
+  // ещё не откалиброван (см. device/src/battery.cpp) — значения ориентировочные.
+  batteryValid: boolean
+  batteryVoltage: number
+  batteryPercent: number
 }
 
 export interface GroupsData {

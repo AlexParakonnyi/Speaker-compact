@@ -25,6 +25,9 @@ const baseStatus: api.DeviceStatus = {
   tracks: [],
   scenarioActive: false,
   activeScenario: '',
+  batteryValid: false,
+  batteryVoltage: 0,
+  batteryPercent: 0,
 }
 
 beforeEach(() => {

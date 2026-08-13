@@ -1,9 +1,12 @@
 import { useState } from 'react'
-import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-react'
+import { Reorder } from 'framer-motion'
+import { Pause, Plus } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { DurationInput } from '@/components/DurationInput'
+import { ScenarioStepRow } from '@/components/ScenarioStepRow'
 import type { Scenario, ScenarioStep, Track } from '@/api/device'
 
 interface ScenarioEditorProps {
@@ -13,10 +16,6 @@ interface ScenarioEditorProps {
   onCancel: () => void
 }
 
-// Упрощённая версия плана 14: без Framer Motion drag-and-drop (кнопки
-// вверх/вниз вместо Reorder.Group) и без единиц времени "5м"/"1ч" (только
-// секунды) — тот же принцип "функционал сейчас, полировка отдельным
-// проходом по плану 12", что и с TrackImagePicker/ConfirmDialog.
 export function ScenarioEditor({ tracks, initial, onSave, onCancel }: ScenarioEditorProps) {
   const isEditing = initial !== undefined
   const [name, setName] = useState(initial?.name ?? '')
@@ -27,28 +26,26 @@ export function ScenarioEditor({ tracks, initial, onSave, onCancel }: ScenarioEd
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
-  const updateStep = (index: number, patch: Partial<ScenarioStep>) => {
-    setSteps((prev) => prev.map((s, i) => (i === index ? { ...s, ...patch } : s)))
+  const updateStepAt = (step: ScenarioStep, patch: Partial<ScenarioStep>) => {
+    setSteps((prev) => prev.map((s) => (s === step ? { ...s, ...patch } : s)))
   }
 
-  const moveStep = (index: number, dir: -1 | 1) => {
-    setSteps((prev) => {
-      const target = index + dir
-      if (target < 0 || target >= prev.length) return prev
-      const next = [...prev]
-      ;[next[index], next[target]] = [next[target], next[index]]
-      return next
-    })
-  }
-
-  const removeStep = (index: number) => {
-    setSteps((prev) => prev.filter((_, i) => i !== index))
+  const removeStepAt = (step: ScenarioStep) => {
+    setSteps((prev) => prev.filter((s) => s !== step))
   }
 
   const addStep = () => {
     if (!addTrack) return
     setSteps((prev) => [...prev, { file: addTrack, delayAfterPrevSec: 0, volume: 1 }])
     setAddTrack('')
+  }
+
+  // Пустой file — "чистая пауза" (по просьбе пользователя): ничего не
+  // играет, устройство просто ждёт delayAfterPrevSec и идёт к следующему
+  // шагу (device/src/scenario.cpp::scenarioTick). 10с по умолчанию — на
+  // глаз разумное стартовое значение, тут же можно поправить.
+  const addPauseStep = () => {
+    setSteps((prev) => [...prev, { file: '', delayAfterPrevSec: 10, volume: 1 }])
   }
 
   const handleSave = async () => {
@@ -92,16 +89,8 @@ export function ScenarioEditor({ tracks, initial, onSave, onCancel }: ScenarioEd
         </div>
 
         <div className="flex flex-col gap-1">
-          <label htmlFor="scenario-start-delay" className="text-xs text-muted-foreground">
-            Задержка перед стартом, сек
-          </label>
-          <Input
-            id="scenario-start-delay"
-            type="number"
-            min={0}
-            value={startDelaySec}
-            onChange={(e) => setStartDelaySec(Math.max(0, Number(e.target.value) || 0))}
-          />
+          <span className="text-xs text-muted-foreground">Задержка перед стартом</span>
+          <DurationInput valueSec={startDelaySec} onChangeSec={setStartDelaySec} aria-label="Задержка перед стартом" />
         </div>
 
         <label className="flex items-center gap-2 text-sm">
@@ -111,58 +100,22 @@ export function ScenarioEditor({ tracks, initial, onSave, onCancel }: ScenarioEd
         {loop && <p className="text-xs text-muted-foreground">После последнего трека сценарий начнётся заново.</p>}
 
         <div className="flex flex-col gap-2">
-          <span className="text-xs text-muted-foreground">Шаги ({steps.length})</span>
+          <span className="text-xs text-muted-foreground">Шаги ({steps.length}) — перетащить за ⠿, чтобы переставить</span>
           {steps.length === 0 && <p className="text-sm text-muted-foreground">Шагов пока нет.</p>}
-          {steps.map((step, i) => (
-            <div key={i} className="flex flex-wrap items-center gap-2 rounded-md border p-2" data-testid="scenario-step">
-              <span className="min-w-0 flex-1 truncate text-sm" title={step.file}>
-                {i + 1}. {step.file}
-              </span>
-              <label className="flex items-center gap-1 text-xs text-muted-foreground">
-                Задержка, с
-                <Input
-                  type="number"
-                  min={0}
-                  value={step.delayAfterPrevSec}
-                  onChange={(e) => updateStep(i, { delayAfterPrevSec: Math.max(0, Number(e.target.value) || 0) })}
-                  className="h-8 w-20"
-                />
-              </label>
-              <label className="flex items-center gap-1 text-xs text-muted-foreground">
-                Громкость
-                <Input
-                  type="number"
-                  min={0}
-                  max={100}
-                  value={Math.round(step.volume * 100)}
-                  onChange={(e) =>
-                    updateStep(i, { volume: constrain01(Number(e.target.value) / 100) })
-                  }
-                  className="h-8 w-16"
-                />
-                %
-              </label>
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => moveStep(i, -1)} disabled={i === 0} aria-label="Выше">
-                <ArrowUp />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => moveStep(i, 1)}
-                disabled={i === steps.length - 1}
-                aria-label="Ниже"
-              >
-                <ArrowDown />
-              </Button>
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => removeStep(i)} aria-label="Удалить шаг">
-                <Trash2 />
-              </Button>
-            </div>
-          ))}
+          <Reorder.Group as="div" axis="y" values={steps} onReorder={setSteps} className="flex flex-col gap-2">
+            {steps.map((step, i) => (
+              <ScenarioStepRow
+                key={i} // индекс — у ScenarioStep нет id, а file может повторяться (два пустых pause-шага и т.п.)
+                step={step}
+                index={i}
+                onChange={(patch) => updateStepAt(step, patch)}
+                onRemove={() => removeStepAt(step)}
+              />
+            ))}
+          </Reorder.Group>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <select
             className="h-9 flex-1 rounded-md border border-input bg-background px-2 text-sm"
             value={addTrack}
@@ -179,6 +132,9 @@ export function ScenarioEditor({ tracks, initial, onSave, onCancel }: ScenarioEd
           <Button size="sm" onClick={addStep} disabled={!addTrack}>
             <Plus /> Добавить шаг
           </Button>
+          <Button size="sm" variant="outline" onClick={addPauseStep}>
+            <Pause /> Добавить паузу
+          </Button>
         </div>
 
         {error && <p className="text-sm text-destructive">{error}</p>}
@@ -193,9 +149,4 @@ export function ScenarioEditor({ tracks, initial, onSave, onCancel }: ScenarioEd
       </CardFooter>
     </Card>
   )
-}
-
-function constrain01(v: number): number {
-  if (Number.isNaN(v)) return 0
-  return Math.min(1, Math.max(0, v))
 }

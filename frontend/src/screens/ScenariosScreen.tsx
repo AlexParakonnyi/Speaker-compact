@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
 import { Plus, Square } from 'lucide-react'
 
 import { activateScenario, deleteScenario, saveScenario, stopScenario, type Scenario } from '@/api/device'
@@ -54,19 +55,28 @@ export function ScenariosScreen() {
         <p className="rounded-md bg-destructive/10 p-2 text-sm text-destructive">{actionError ?? error}</p>
       )}
 
-      {status.scenarioActive && (
-        <Card className="border-primary" data-testid="active-scenario-banner">
-          <CardContent className="flex items-center justify-between gap-2 pt-4">
-            <span className="text-sm">
-              Активен сценарий: <strong>{status.activeScenario}</strong>
-              {status.status === 'PLAYING' && status.currentTrack && ` — играет «${status.currentTrack}»`}
-            </span>
-            <Button size="sm" variant="secondary" onClick={() => runAction(() => stopScenario())}>
-              <Square /> Остановить
-            </Button>
-          </CardContent>
-        </Card>
-      )}
+      <AnimatePresence>
+        {status.scenarioActive && (
+          <motion.div
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.2 }}
+          >
+            <Card className="border-primary" data-testid="active-scenario-banner">
+              <CardContent className="flex items-center justify-between gap-2 pt-4">
+                <span className="text-sm">
+                  Активен сценарий: <strong>{status.activeScenario}</strong>
+                  {status.status === 'PLAYING' && status.currentTrack && ` — играет «${status.currentTrack}»`}
+                </span>
+                <Button size="sm" variant="secondary" onClick={() => runAction(() => stopScenario())}>
+                  <Square /> Остановить
+                </Button>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {editing !== null ? (
         <ScenarioEditor
@@ -92,17 +102,27 @@ export function ScenariosScreen() {
             <p className="py-8 text-center text-sm text-muted-foreground">Сценариев пока нет.</p>
           ) : (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {scenarios.scenarios.map((s) => (
-                <ScenarioCard
-                  key={s.name}
-                  scenario={s}
-                  isActive={status.scenarioActive && status.activeScenario === s.name}
-                  onActivate={() => runAction(() => activateScenario(s.name))}
-                  onStop={() => runAction(() => stopScenario())}
-                  onEdit={() => setEditing(s)}
-                  onDelete={() => runAction(() => deleteScenario(s.name))}
-                />
-              ))}
+              <AnimatePresence initial={false}>
+                {scenarios.scenarios.map((s) => (
+                  <motion.div
+                    key={s.name}
+                    layout
+                    initial={{ opacity: 0, scale: 0.96 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.96 }}
+                    transition={{ duration: 0.18 }}
+                  >
+                    <ScenarioCard
+                      scenario={s}
+                      isActive={status.scenarioActive && status.activeScenario === s.name}
+                      onActivate={() => runAction(() => activateScenario(s.name))}
+                      onStop={() => runAction(() => stopScenario())}
+                      onEdit={() => setEditing(s)}
+                      onDelete={() => runAction(() => deleteScenario(s.name))}
+                    />
+                  </motion.div>
+                ))}
+              </AnimatePresence>
             </div>
           )}
         </>

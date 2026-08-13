@@ -24,6 +24,9 @@ const baseStatus: api.DeviceStatus = {
   tracks: [],
   scenarioActive: false,
   activeScenario: '',
+  batteryValid: false,
+  batteryVoltage: 0,
+  batteryPercent: 0,
 }
 const baseGroups: api.GroupsData = { groups: [], assignments: {} }
 const baseScenarios: api.ScenariosData = { scenarios: [] }
