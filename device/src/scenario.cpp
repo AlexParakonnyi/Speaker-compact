@@ -196,6 +196,18 @@ void scenarioTick() {
   }
 
   const ScenarioStep& step = activeScenario.steps[activeStepIndex];
+
+  // Пустой file — "чистая пауза" (новый пункт, по просьбе пользователя):
+  // ничего не играть, delayAfterPrevSec уже отсчитан выше (nextEventAtMs),
+  // сразу к следующему шагу. Не через waitingForTrackEnd — играть нечего,
+  // ждать currentState==IDLE не от чего.
+  if (step.file.length() == 0) {
+    ESP_LOGI(TAG, "'%s' step %d/%d: pause only", activeScenarioName.c_str(), activeStepIndex + 1,
+             (int)activeScenario.steps.size());
+    advanceStep();
+    return;
+  }
+
   // Громкость на шаг — поверх общего speakerWrite()/playbackVolume, как
   // предписывает план 08 п.3 (не отдельный путь применения громкости).
   // Побочный эффект: playbackVolume — глобальная настройка, после сценария

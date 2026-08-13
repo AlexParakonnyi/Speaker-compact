@@ -5,6 +5,7 @@
 #include <SD.h>
 #include <esp_log.h>
 
+#include "battery.h"
 #include "global.h"
 #include "groups.h"
 #include "images.h"
@@ -209,6 +210,11 @@ void initServers() {
     // чтобы можно было наблюдать прогресс без отдельного эндпоинта.
     doc["scenarioActive"] = scenarioActive;
     doc["activeScenario"] = scenarioActive ? activeScenarioName : "";
+    // Кэш из battery.cpp, обновляется раз в 10с из loop() — см. предупреждение
+    // там же про неоткалиброванный делитель (нет ещё реальной батареи).
+    doc["batteryValid"] = batteryReading.valid;
+    doc["batteryVoltage"] = batteryReading.voltage;
+    doc["batteryPercent"] = batteryReading.percent;
     String json;
     serializeJson(doc, json);
     request->send(200, "application/json", json);
@@ -472,7 +478,9 @@ void initServers() {
         for (JsonVariant v : steps) {
           ScenarioStep step;
           step.file = v["file"].as<String>();
-          if (!trackNameSafe(step.file)) {
+          // Пустой file — "чистая пауза" (device/src/scenario.cpp::scenarioTick),
+          // не связана ни с каким треком. Непустой — обычная проверка имени.
+          if (!step.file.isEmpty() && !trackNameSafe(step.file)) {
             request->send(400, "text/plain", "Invalid step 'file'");
             return;
           }

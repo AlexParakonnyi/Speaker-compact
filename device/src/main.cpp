@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <esp_log.h>
 
+#include "battery.h"
 #include "global.h"
 #include "groups.h"
 #include "network.h"
@@ -30,6 +31,8 @@ void setup() {
 
   initNetwork();  // защёлка решает: поднимать AP или нет (Plan/09)
   initServers();
+  initBattery();
+  updateBatteryReading();  // первое значение сразу, не ждать 10с до первого heartbeat-цикла
 
   ESP_LOGI(TAG, "=== Готово ===");
 }
@@ -50,10 +53,11 @@ void loop() {
   static uint32_t lastHeartbeat = 0;
   if (millis() - lastHeartbeat >= 10000) {
     lastHeartbeat = millis();
-    ESP_LOGI(TAG, "heartbeat latch=%s state=%s tracks=%u scenario=%s",
+    updateBatteryReading();  // раз в 10с достаточно — напряжение батареи не скачет мгновенно
+    ESP_LOGI(TAG, "heartbeat latch=%s state=%s tracks=%u scenario=%s battery=%.2fV(%u%%)",
              latchClosed() ? "closed(AP)" : "open", stateName(currentState),
-             (unsigned)trackList.size(),
-             scenarioActive ? activeScenarioName.c_str() : "-");
+             (unsigned)trackList.size(), scenarioActive ? activeScenarioName.c_str() : "-",
+             batteryReading.voltage, batteryReading.percent);
   }
 
   // Подстраховка: раз в 3 сек, только в IDLE (нет открытого audioFile),
